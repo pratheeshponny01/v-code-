@@ -1,0 +1,842 @@
+<!DOCTYPE html>
+<html lang="ml">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <!-- Permit unblocked TTS audio streaming without referer blocks -->
+    <meta name="referrer" content="no-referrer">
+    <title>V'CODE - Auto Driver Dashboard</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Poppins & Space Grotesk / Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@600;700&family=Manrope:wght@400;600;700;800&family=Noto+Sans+Malayalam:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Manrope', 'Noto Sans Malayalam', 'sans-serif'],
+                        digital: ['Chakra Petch', 'monospace'],
+                        malayalam: ['Noto Sans Malayalam', 'sans-serif'],
+                    },
+                    colors: {
+                        vcode: {
+                            base: '#080d0a',
+                            surface: '#0f1712',
+                            card: '#16231b',
+                            border: '#243b2d',
+                            green: '#00e676',
+                            greenDark: '#00a352',
+                            leaf: '#10b981',
+                            gold: '#fbbf24',
+                            amber: '#f59e0b',
+                        }
+                    },
+                    animation: {
+                        'pulse-fast': 'pulse 1s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                        'ping-once': 'ping 0.8s cubic-bezier(0, 0, 0.2, 1) 1',
+                        'flash-green': 'flashGreen 0.7s ease-out',
+                    },
+                    keyframes: {
+                        flashGreen: {
+                            '0%': { backgroundColor: '#00e676' },
+                            '100%': { backgroundColor: '#080d0a' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        * {
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+        }
+
+        body {
+            background-color: #080d0a;
+            color: #f1f5f9;
+            font-family: 'Manrope', 'Noto Sans Malayalam', sans-serif;
+            overflow: hidden;
+            touch-action: manipulation;
+        }
+
+        /* High-Visibility Glowing Numbers */
+        .neon-text-green {
+            text-shadow: 0 0 25px rgba(0, 230, 118, 0.45), 0 0 50px rgba(0, 230, 118, 0.2);
+        }
+
+        .neon-box-active {
+            box-shadow: 0 0 35px rgba(0, 230, 118, 0.25), inset 0 0 20px rgba(0, 230, 118, 0.15);
+        }
+
+        /* Pulse wave when new payment arrives */
+        @keyframes ripple {
+            0% { transform: scale(0.95); opacity: 1; }
+            100% { transform: scale(1.15); opacity: 0; }
+        }
+        .ripple-effect {
+            animation: ripple 0.8s cubic-bezier(0.1, 0.8, 0.3, 1) forwards;
+        }
+    </style>
+</head>
+
+<body class="h-screen w-screen flex flex-col justify-between select-none relative bg-vcode-base">
+
+    <!-- TOP SLIM BAR: DRIVER PROFILE & HARDWARE STATUS -->
+    <header class="w-full bg-vcode-surface/90 border-b border-vcode-border px-4 py-2.5 flex items-center justify-between z-30 backdrop-blur-md">
+        <div class="flex items-center gap-2.5">
+            <!-- Leaf Logo Indicator -->
+            <div class="w-8 h-8 rounded-full bg-emerald-950/80 border border-emerald-500/40 flex items-center justify-center text-emerald-400 text-sm">
+                <i class="fa-solid fa-leaf"></i>
+            </div>
+            <div>
+                <div class="flex items-center gap-1.5 leading-none">
+                    <span class="font-extrabold text-sm text-white tracking-wide">ഷാജിയേട്ടൻ</span>
+                    <span class="text-[10px] bg-emerald-950 text-emerald-300 font-bold px-1.5 py-0.5 rounded border border-emerald-700/50">KL 05 AB 1234</span>
+                </div>
+                <p class="text-[10px] text-slate-400 font-medium mt-0.5">കോട്ടയം റയിൽവേ സ്റ്റാൻഡ് • V'CODE</p>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-2">
+            <!-- Security & Device Lock Badge -->
+            <button onclick="toggleDeviceSecurityModal(true)" class="flex items-center gap-1.5 text-[11px] bg-emerald-950/80 border border-emerald-500/50 px-2.5 py-1 rounded-full text-emerald-300 transition-all active:scale-95 shadow-sm" title="V'CODE സെക്യൂരിറ്റി സ്റ്റാറ്റസ്">
+                <i class="fa-solid fa-shield-halved text-xs text-vcode-green"></i>
+                <span id="device-lock-badge" class="font-bold">ഡിവൈസ് ലോക്ക്ഡ്</span>
+            </button>
+
+            <!-- Pure Malayalam Voice Indicator Badge -->
+            <div class="flex items-center gap-1.5 text-[11px] bg-emerald-900/50 border border-emerald-500/40 px-2.5 py-1 rounded-full text-emerald-300 font-bold" title="വോയ്‌സ് മോഡ്: 100% മലയാളം">
+                <i class="fa-solid fa-language text-xs text-vcode-green"></i>
+                <span>മലയാളം വോയ്‌സ്</span>
+            </div>
+
+            <!-- Bluetooth Auto Speaker Connection Status -->
+            <button id="btn-speaker-toggle" onclick="toggleSpeakerRoute()" class="flex items-center gap-1 text-[11px] bg-vcode-card border border-vcode-border px-2.5 py-1 rounded-full text-emerald-400 transition-all active:scale-95">
+                <i id="speaker-icon" class="fa-brands fa-bluetooth text-sm text-blue-400"></i>
+                <span id="speaker-text" class="font-semibold">ഓട്ടോ സ്പീക്കർ</span>
+            </button>
+
+            <!-- Test Audio Direct Button -->
+            <button onclick="testDirectAudio(event)" class="bg-emerald-950 hover:bg-emerald-900 text-emerald-300 border border-emerald-500/50 text-xs px-2.5 py-1.5 rounded-full flex items-center gap-1 active:scale-95 transition-all" title="ശബ്ദം കേൾക്കുക">
+                <i class="fa-solid fa-volume-high text-emerald-400"></i>
+                <span class="font-bold hidden sm:inline">ശബ്ദം ടെസ്റ്റ്</span>
+            </button>
+
+            <!-- Test / Simulation Drawer Trigger -->
+            <button onclick="toggleSimulationModal(true)" class="bg-vcode-green hover:bg-emerald-400 text-slate-950 font-black text-xs px-3 py-1.5 rounded-full flex items-center gap-1.5 shadow-lg shadow-emerald-900/40 active:scale-95 transition-all">
+                <i class="fa-solid fa-bolt text-[11px]"></i>
+                <span>ടെസ്റ്റ് പേയ്‌മെന്റ്</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- MAIN CENTRAL DISPLAY: 70% SCREEN REAL ESTATE (COMBO 1 + 2) -->
+    <main id="main-tap-zone" onclick="handleScreenTap(event)" class="relative flex-1 w-full flex flex-col items-center justify-center p-4 cursor-pointer transition-all duration-300 active:scale-[0.99] group overflow-hidden">
+        
+        <!-- Background decorative watermark -->
+        <div class="absolute inset-0 flex items-center justify-center pointer-events-none opacity-5">
+            <i class="fa-solid fa-leaf text-[320px] text-emerald-400 rotate-12"></i>
+        </div>
+
+        <!-- Ripple Ring Container for new payments -->
+        <div id="ripple-ring" class="absolute w-72 h-72 rounded-full border-4 border-vcode-green opacity-0 pointer-events-none"></div>
+
+        <!-- Top status label inside payment block -->
+        <div class="flex items-center gap-2 mb-2 z-10">
+            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-950/70 border border-emerald-500/30 text-emerald-300 text-xs font-bold uppercase tracking-wider">
+                <span class="w-2 h-2 rounded-full bg-vcode-green animate-pulse"></span>
+                അവസാനം ലഭിച്ച തുക
+            </span>
+            <span id="last-payment-time" class="text-xs font-semibold text-slate-400">10:42 AM</span>
+        </div>
+
+        <!-- GIGANTIC TRANSACTION AMOUNT DISPLAY -->
+        <div class="z-10 flex items-baseline justify-center gap-2 my-1">
+            <span class="text-4xl md:text-6xl font-extrabold text-vcode-green">₹</span>
+            <span id="display-last-amount" class="text-8xl sm:text-9xl md:text-[140px] font-digital font-bold text-white neon-text-green tracking-tight leading-none">
+                40
+            </span>
+        </div>
+
+        <!-- Payer Info & Bank Header Tag -->
+        <div class="z-10 flex flex-col items-center gap-1 mt-1 text-center">
+            <div class="flex items-center gap-2 text-xs font-medium text-slate-300 bg-vcode-card/80 border border-vcode-border/70 px-3 py-1 rounded-lg">
+                <i class="fa-solid fa-circle-check text-vcode-green"></i>
+                <span id="payer-tag">ഗൂഗിൾ പേ വഴി ക്രെഡിറ്റ് ആയി</span>
+                <span class="text-slate-500">•</span>
+                <span id="payer-vpa" class="text-slate-400 font-mono text-[11px]">UPI: suresh***@okaxis</span>
+            </div>
+        </div>
+
+        <!-- TAP TO REPLAY NOTIFIER PILL -->
+        <div class="z-10 mt-6 flex items-center gap-2.5 px-4 py-2 rounded-full bg-emerald-900/30 border border-emerald-500/40 text-emerald-300 group-hover:bg-emerald-800/40 transition-all shadow-md">
+            <div id="audio-indicator-icon" class="w-6 h-6 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-300 text-xs animate-bounce">
+                <i class="fa-solid fa-volume-high"></i>
+            </div>
+            <span class="text-xs sm:text-sm font-bold tracking-wide">
+                ശബ്ദം വീണ്ടും കേൾക്കാൻ സ്ക്രീനിൽ തൊടുക
+            </span>
+            <!-- Live Malayalam Audio Waves Animation -->
+            <div id="speaking-wave-bars" class="hidden flex items-center gap-1 ml-1">
+                <span class="w-1 h-3 bg-emerald-400 rounded-full animate-pulse"></span>
+                <span class="w-1 h-5 bg-emerald-400 rounded-full animate-pulse delay-75"></span>
+                <span class="w-1 h-2 bg-emerald-400 rounded-full animate-pulse delay-150"></span>
+            </div>
+        </div>
+
+        <!-- Audio subtitle / visual caption toast for noisy environments -->
+        <div id="audio-subtitle-toast" class="absolute bottom-3 left-4 right-4 z-20 hidden bg-slate-900/95 border border-emerald-500/50 rounded-xl p-2.5 text-center shadow-2xl backdrop-blur-md">
+            <p class="text-emerald-400 text-xs sm:text-sm font-semibold font-malayalam leading-relaxed">
+                "V'CODE വഴി ₹40 വിജയകരമായി ലഭിച്ചു. നന്ദി, ശുഭയാത്ര!"
+            </p>
+        </div>
+    </main>
+
+    <!-- BOTTOM DOCK: 30% DAILY COLLECTION & TRIPS SUMMARY -->
+    <footer class="w-full bg-vcode-surface border-t-2 border-vcode-border p-4 z-30">
+        <div class="max-w-4xl mx-auto flex items-center justify-between gap-3">
+            
+            <!-- Left: Today's Collection Total -->
+            <div class="flex-1 bg-vcode-card border border-vcode-border rounded-2xl p-3.5 flex items-center justify-between">
+                <div>
+                    <span class="text-[11px] font-extrabold text-slate-400 uppercase tracking-wider block">
+                        ഇന്നത്തെ ആകെ കളക്ഷൻ
+                    </span>
+                    <div class="flex items-baseline gap-1 mt-0.5">
+                        <span class="text-xl font-bold text-vcode-gold">₹</span>
+                        <span id="display-daily-total" class="text-3xl sm:text-4xl font-digital font-bold text-white tracking-wide">
+                            840
+                        </span>
+                    </div>
+                </div>
+                <div class="text-right">
+                    <span class="text-[11px] font-extrabold text-slate-400 uppercase tracking-wider block">ഓട്ടങ്ങൾ</span>
+                    <span id="display-daily-trips" class="text-2xl font-digital font-bold text-emerald-400">14</span>
+                </div>
+            </div>
+
+            <!-- Right Quick Actions: Physical Stand Status & Audio Test -->
+            <div class="flex items-center gap-2">
+                <!-- Physical Stand Status Indicator -->
+                <div class="h-16 px-3 bg-vcode-card border border-vcode-border rounded-2xl flex flex-col items-center justify-center text-slate-400 shadow-md">
+                    <div class="flex items-center gap-1 text-emerald-400 text-xs mb-0.5">
+                        <i class="fa-solid fa-circle-check text-[11px]"></i>
+                        <i class="fa-solid fa-leaf text-sm"></i>
+                    </div>
+                    <span class="text-[10px] font-bold text-slate-300">വെറ്റില സ്റ്റാൻഡ്</span>
+                    <span class="text-[9px] text-emerald-400 font-semibold">ആക്റ്റീവ്</span>
+                </div>
+
+                <!-- Malayalam Voice Re-Trigger -->
+                <button onclick="triggerVoiceRespectAudio(lastPaymentAmount)" class="h-16 px-3.5 bg-emerald-900/50 hover:bg-emerald-800/60 border border-emerald-500/50 rounded-2xl flex flex-col items-center justify-center text-emerald-300 transition-all active:scale-95 shadow-md" title="മലയാളത്തിൽ കേൾക്കുക">
+                    <i class="fa-solid fa-volume-high text-xl text-vcode-green mb-1 animate-pulse"></i>
+                    <span class="text-[10px] font-bold">മലയാളം ശബ്ദം</span>
+                </button>
+            </div>
+        </div>
+    </footer>
+
+    <!-- POPUP 1: INSTANT SMS / PAYMENT SIMULATION DRAWER -->
+    <div id="modal-simulation" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-end sm:items-center justify-center p-0 sm:p-4">
+        <div class="w-full sm:max-w-md bg-vcode-surface border-t sm:border border-vcode-border sm:rounded-3xl p-6 shadow-2xl space-y-5 animate-in fade-in duration-200">
+            <div class="flex items-center justify-between border-b border-vcode-border pb-3">
+                <div class="flex items-center gap-2">
+                    <span class="w-3 h-3 rounded-full bg-vcode-green"></span>
+                    <h3 class="text-base font-bold text-white">ടെസ്റ്റ് പേയ്‌മെന്റ് സിമുലേറ്റർ</h3>
+                </div>
+                <button onclick="toggleSimulationModal(false)" class="text-slate-400 hover:text-white text-xl p-1">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <p class="text-xs text-slate-300 leading-relaxed font-malayalam">
+                യാത്രക്കാരൻ ഓട്ടോയിലെ വെറ്റില QR സ്കാൻ ചെയ്ത് അയക്കുമ്പോൾ ബാങ്ക് SMS വരുന്ന അതേ പ്രക്രിയ ഇവിടെ ക്ലിക്ക് ചെയ്ത് പരിശോധിക്കാം:
+            </p>
+
+            <!-- Quick Auto Fare Presets in Kerala -->
+            <div class="grid grid-cols-4 gap-2.5">
+                <button onclick="simulateCustomerPayment(30)" class="py-3 bg-vcode-card hover:bg-emerald-950 border border-vcode-border hover:border-emerald-500 rounded-xl font-digital font-bold text-lg text-emerald-300 active:scale-95 transition-all">
+                    ₹30
+                </button>
+                <button onclick="simulateCustomerPayment(40)" class="py-3 bg-vcode-card hover:bg-emerald-950 border border-vcode-border hover:border-emerald-500 rounded-xl font-digital font-bold text-lg text-emerald-300 active:scale-95 transition-all">
+                    ₹40
+                </button>
+                <button onclick="simulateCustomerPayment(70)" class="py-3 bg-vcode-card hover:bg-emerald-950 border border-vcode-border hover:border-emerald-500 rounded-xl font-digital font-bold text-lg text-emerald-300 active:scale-95 transition-all">
+                    ₹70
+                </button>
+                <button onclick="simulateCustomerPayment(120)" class="py-3 bg-vcode-card hover:bg-emerald-950 border border-vcode-border hover:border-emerald-500 rounded-xl font-digital font-bold text-lg text-emerald-300 active:scale-95 transition-all">
+                    ₹120
+                </button>
+            </div>
+
+            <!-- Custom Amount Input -->
+            <div class="flex gap-2">
+                <div class="relative flex-1">
+                    <span class="absolute left-3 top-3 text-slate-400 font-bold text-base">₹</span>
+                    <input id="input-custom-amount" type="number" placeholder="മറ്റ് തുക (e.g. 50)" class="w-full bg-vcode-card border border-vcode-border rounded-xl py-2.5 pl-8 pr-3 text-white font-bold focus:outline-none focus:border-vcode-green font-digital text-lg">
+                </div>
+                <button onclick="handleCustomPaymentSubmit()" class="px-5 bg-vcode-green hover:bg-emerald-400 text-slate-950 font-extrabold rounded-xl text-sm active:scale-95 transition-all">
+                    അയക്കുക
+                </button>
+            </div>
+
+            <!-- Mock SMS preview snippet -->
+            <div class="bg-black/60 border border-slate-800 rounded-xl p-3 text-[11px] text-slate-400 font-mono">
+                <span class="text-emerald-400 font-bold">ബാങ്ക് SMS ഉദാഹരണം:</span><br>
+                "SBI: A/C 9845 credited by Rs 40.00 on 07-Sep via UPI Ref 429381. Bal: Rs 4,520."
+            </div>
+        </div>
+    </div>
+
+    <!-- POPUP 2: HARDWARE/DEVICE SECURITY LOCK OVERLAY -->
+    <div id="modal-device-lock" class="fixed inset-0 z-50 bg-black/95 backdrop-blur-md hidden flex items-center justify-center p-4">
+        <div class="w-full max-w-sm bg-vcode-surface border-2 border-red-500/50 rounded-3xl p-6 shadow-2xl text-center space-y-4 animate-in fade-in zoom-in duration-200">
+            <div class="w-16 h-16 rounded-full bg-red-950/80 border-2 border-red-500/60 flex items-center justify-center text-red-400 text-2xl mx-auto">
+                <i class="fa-solid fa-lock"></i>
+            </div>
+
+            <div>
+                <h3 class="text-lg font-black text-white">V'CODE സെക്യൂരിറ്റി ലോക്ക്</h3>
+                <p class="text-xs text-red-400 font-semibold mt-1">അനധികൃത ഉപകരണം കണ്ടെത്തി (Unauthorized Device)</p>
+            </div>
+
+            <div class="bg-vcode-card border border-vcode-border rounded-2xl p-3 text-left space-y-1.5 text-xs">
+                <p class="text-slate-400">രജിസ്റ്റർ ചെയ്ത വാഹനം: <span class="text-white font-bold" id="lock-vehicle-no">KL 05 AB 1234</span></p>
+                <p class="text-slate-400">രജിസ്റ്റർ ചെയ്ത ഡ്രൈവർ: <span class="text-white font-bold" id="lock-driver-name">ഷാജിയേട്ടൻ</span></p>
+                <p class="text-slate-400">ലിങ്ക് ചെയ്ത UPI ID: <span class="text-emerald-400 font-mono font-bold" id="lock-upi-id">shaji.auto@okaxis</span></p>
+            </div>
+
+            <p class="text-[11px] text-slate-300 font-malayalam leading-relaxed">
+                ഈ ഡാഷ്‌ബോർഡ് ഷാജിയേട്ടന്റെ ഫോണിലേക്ക് മാത്രമായി ലോക്ക് ചെയ്തിട്ടുള്ളതാണ്. ലിങ്ക് കോപ്പി ചെയ്തോ മറ്റൊരു ഫോണിലോ ഇത് പ്രവർത്തിക്കില്ല.
+            </p>
+
+            <!-- Admin Master Unlock / Device Transfer Bypass -->
+            <div class="pt-2 border-t border-vcode-border space-y-2.5">
+                <p class="text-[10px] text-slate-400 font-bold uppercase tracking-wider">ഫോൺ മാറുകയാണോ? V'CODE അഡ്മിൻ ആക്റ്റിവേഷൻ</p>
+                <div class="flex gap-2">
+                    <input id="input-admin-pin" type="password" maxlength="4" placeholder="മാസ്റ്റർ പിൻ (2026)" class="w-full bg-vcode-card border border-vcode-border rounded-xl px-3 py-2 text-center text-white font-mono font-bold text-sm tracking-widest focus:outline-none focus:border-emerald-500">
+                    <button onclick="unlockWithAdminPin()" class="px-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl active:scale-95 transition-all">
+                        അൺലോക്ക്
+                    </button>
+                </div>
+                <p class="text-[10px] text-slate-500">V'CODE പൈലറ്റ് ഹെൽപ്പ്‌ലൈൻ: <span class="text-emerald-400 font-bold">+91 94000 VCODE</span></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- POPUP 3: DRIVER PROFILE & DEVICE BINDING INFO -->
+    <div id="modal-security-info" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-4">
+        <div class="w-full max-w-sm bg-vcode-surface border border-vcode-border rounded-3xl p-5 shadow-2xl space-y-4">
+            <div class="flex items-center justify-between border-b border-vcode-border pb-3">
+                <div class="flex items-center gap-2 text-emerald-400">
+                    <i class="fa-solid fa-shield-halved text-base"></i>
+                    <h3 class="text-sm font-bold text-white">V'CODE ലൈസൻസ് & സുരക്ഷ</h3>
+                </div>
+                <button onclick="toggleDeviceSecurityModal(false)" class="text-slate-400 hover:text-white p-1">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <div class="space-y-2 text-xs">
+                <div class="p-3 bg-vcode-card border border-vcode-border rounded-xl space-y-1">
+                    <div class="flex justify-between text-slate-400">
+                        <span>സ്റ്റാറ്റസ്:</span>
+                        <span class="text-emerald-400 font-bold flex items-center gap-1">
+                            <i class="fa-solid fa-circle-check text-[10px]"></i> സിംഗിൾ ഡിവൈസ് ലോക്ക്ഡ്
+                        </span>
+                    </div>
+                    <div class="flex justify-between text-slate-400">
+                        <span>ഡ്രൈവർ ID:</span>
+                        <span class="text-white font-mono font-bold" id="info-driver-id">VCODE-KT-0501</span>
+                    </div>
+                    <div class="flex justify-between text-slate-400">
+                        <span>ബൗണ്ട് UPI ID:</span>
+                        <span class="text-emerald-400 font-mono font-bold" id="info-bound-upi">shaji.auto@okaxis</span>
+                    </div>
+                    <div class="flex justify-between text-slate-400">
+                        <span>ഡിവൈസ് ഫിംഗർപ്രിന്റ്:</span>
+                        <span class="text-slate-300 font-mono text-[10px]" id="info-device-fp">VC-DEV-****99</span>
+                    </div>
+                </div>
+
+                <p class="text-[11px] text-slate-400 font-malayalam leading-relaxed">
+                    ഈ ഡാഷ്‌ബോർഡ് മറ്റൊരു വ്യക്തിക്ക് ഫോർവേഡ് ചെയ്താലും അവർക്ക് പ്രവർത്തിപ്പിക്കാൻ കഴിയില്ല. വാടക അടച്ച ഡ്രൈവറുടെ ഫോണിൽ മാത്രമേ അലേർട്ടുകൾ പ്രവർത്തിക്കൂ.
+                </p>
+            </div>
+
+            <button onclick="simulateUnauthorizedAccess()" class="w-full py-2 bg-red-950 hover:bg-red-900 border border-red-800 text-red-300 text-xs font-bold rounded-xl active:scale-95 transition-all">
+                മറ്റൊരു ഫോണിൽ തുറക്കുമ്പോഴുള്ള അനുഭവം പരീക്ഷിക്കുക (Test Lock)
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // State variables
+        let lastPaymentAmount = 40;
+        let todayTotal = 840;
+        let todayTrips = 14;
+        let isSpeakerConnected = true;
+        let audioContext = null;
+        let currentAudioPlayer = null;
+        let availableVoices = [];
+
+        // Safe Storage wrapper (prevents iframe SecurityError crashes)
+        const memoryCache = {};
+        const safeStorage = {
+            getItem: (key) => {
+                try {
+                    return localStorage.getItem(key) || memoryCache[key] || null;
+                } catch (e) {
+                    return memoryCache[key] || null;
+                }
+            },
+            setItem: (key, val) => {
+                try {
+                    localStorage.setItem(key, val);
+                } catch (e) {
+                    memoryCache[key] = val;
+                }
+            }
+        };
+
+        // Driver Identity & Single-Device Binding Configuration
+        const DRIVER_PROFILE = {
+            id: 'VCODE-KT-0501',
+            name: 'ഷാജിയേട്ടൻ',
+            vehicle: 'KL 05 AB 1234',
+            stand: 'കോട്ടയം റയിൽവേ സ്റ്റാൻഡ്',
+            upiId: 'shaji.auto@okaxis',
+            adminPin: '2026',
+        };
+
+        // Initialize and Verify Device Binding on Load
+        function initDeviceSecurity() {
+            let localDeviceId = safeStorage.getItem('vcode_bound_device_id');
+            const authorizedIdKey = `vcode_auth_${DRIVER_PROFILE.id}`;
+            let registeredDeviceId = safeStorage.getItem(authorizedIdKey);
+
+            if (!registeredDeviceId) {
+                const newFp = 'VC-DEV-' + Math.random().toString(36).substring(2, 9).toUpperCase();
+                safeStorage.setItem(authorizedIdKey, newFp);
+                safeStorage.setItem('vcode_bound_device_id', newFp);
+                registeredDeviceId = newFp;
+                localDeviceId = newFp;
+            }
+
+            const fpText = document.getElementById('info-device-fp');
+            if (fpText) fpText.textContent = registeredDeviceId;
+
+            const upiText = document.getElementById('info-bound-upi');
+            if (upiText) upiText.textContent = DRIVER_PROFILE.upiId;
+
+            if (localDeviceId !== registeredDeviceId) {
+                triggerDeviceLockScreen();
+            }
+        }
+
+        // Show Lock Screen when unauthorized access occurs
+        function triggerDeviceLockScreen() {
+            const lockModal = document.getElementById('modal-device-lock');
+            document.getElementById('lock-driver-name').textContent = DRIVER_PROFILE.name;
+            document.getElementById('lock-vehicle-no').textContent = DRIVER_PROFILE.vehicle;
+            document.getElementById('lock-upi-id').textContent = DRIVER_PROFILE.upiId;
+            lockModal.classList.remove('hidden');
+        }
+
+        // Admin Master PIN unlock (Binds the new device to this driver profile)
+        function unlockWithAdminPin() {
+            const pinInput = document.getElementById('input-admin-pin');
+            if (pinInput.value === DRIVER_PROFILE.adminPin) {
+                const newFp = 'VC-DEV-' + Math.random().toString(36).substring(2, 9).toUpperCase();
+                safeStorage.setItem(`vcode_auth_${DRIVER_PROFILE.id}`, newFp);
+                safeStorage.setItem('vcode_bound_device_id', newFp);
+
+                document.getElementById('modal-device-lock').classList.add('hidden');
+                pinInput.value = '';
+                showSubtitleToast("ഉപകരണം വിജയകരമായി V'CODE സിസ്റ്റത്തിലേക്ക് മാറ്റി രജിസ്റ്റർ ചെയ്തു ✅");
+            } else {
+                showSubtitleToast("തെറ്റായ അഡ്മിൻ പിൻ! V'CODE ഹെൽപ്പ്‌ലൈനുമായി ബന്ധപ്പെടുക ❌");
+                pinInput.value = '';
+            }
+        }
+
+        // Test simulation for unauthorized access
+        function simulateUnauthorizedAccess() {
+            toggleDeviceSecurityModal(false);
+            triggerDeviceLockScreen();
+        }
+
+        // Toggle Security Info Modal
+        function toggleDeviceSecurityModal(show) {
+            const modal = document.getElementById('modal-security-info');
+            if (show) {
+                modal.classList.remove('hidden');
+            } else {
+                modal.classList.add('hidden');
+            }
+        }
+
+        // Convert common rupee amounts to natural spoken Malayalam words
+        function getSpokenMalayalamWords(num) {
+            const numWords = {
+                1: 'ഒരു', 2: 'രണ്ട്', 5: 'അഞ്ച്', 10: 'പത്ത്', 15: 'പതിനഞ്ച്', 
+                20: 'ഇരുപത്', 25: 'ഇരുപത്തിയഞ്ച്', 30: 'മുപ്പത്', 35: 'മുപ്പത്തിയഞ്ച്', 
+                40: 'നാല്പത്', 45: 'നാല്പത്തിയഞ്ച്', 50: 'അമ്പത്', 60: 'അറുപത്', 
+                70: 'എഴുപത്', 80: 'എൺപത്', 90: 'തൊണ്ണൂറ്', 100: 'നൂറ്', 
+                120: 'നൂറ്റിയിരുപത്', 150: 'നൂറ്റമ്പത്', 200: 'ഇരുനൂറ്', 
+                250: 'ഇരുനൂറ്റമ്പത്', 300: 'മുന്നൂറ്', 500: 'അഞ്ഞൂറ്'
+            };
+            return numWords[num] || `${num}`;
+        }
+
+        // Initialize and unlock Web Audio Context on user gesture
+        function getAudioContext() {
+            try {
+                if (!audioContext) {
+                    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+                    audioContext = new AudioContextClass();
+                }
+                if (audioContext.state === 'suspended') {
+                    audioContext.resume();
+                }
+                return audioContext;
+            } catch(e) {
+                console.warn("Web Audio Context not supported:", e);
+                return null;
+            }
+        }
+
+        // Global unlock listener: Browsers require one click/tap to play audio
+        function unlockAudioOnUserGesture() {
+            getAudioContext();
+            loadVoices();
+            window.removeEventListener('click', unlockAudioOnUserGesture);
+            window.removeEventListener('touchstart', unlockAudioOnUserGesture);
+        }
+        window.addEventListener('click', unlockAudioOnUserGesture);
+        window.addEventListener('touchstart', unlockAudioOnUserGesture);
+
+        // Preload browser voices for SpeechSynthesis fallback
+        function loadVoices() {
+            if ('speechSynthesis' in window) {
+                availableVoices = window.speechSynthesis.getVoices();
+            }
+        }
+        if ('speechSynthesis' in window) {
+            window.speechSynthesis.onvoiceschanged = loadVoices;
+            loadVoices();
+        }
+
+        // Play loud 3-tone Paytm/PhonePe style soundbox chime
+        function playChime(callback) {
+            try {
+                const ctx = getAudioContext();
+                if (!ctx) {
+                    if (callback) callback();
+                    return;
+                }
+
+                const now = ctx.currentTime;
+
+                // Tone 1: 523.25 Hz (C5)
+                const osc1 = ctx.createOscillator();
+                const gain1 = ctx.createGain();
+                osc1.type = 'sine';
+                osc1.frequency.setValueAtTime(523.25, now);
+                gain1.gain.setValueAtTime(0.4, now);
+                gain1.gain.exponentialRampToValueAtTime(0.01, now + 0.18);
+                osc1.connect(gain1);
+                gain1.connect(ctx.destination);
+                osc1.start(now);
+                osc1.stop(now + 0.18);
+
+                // Tone 2: 659.25 Hz (E5)
+                const osc2 = ctx.createOscillator();
+                const gain2 = ctx.createGain();
+                osc2.type = 'sine';
+                osc2.frequency.setValueAtTime(659.25, now + 0.12);
+                gain2.gain.setValueAtTime(0.45, now + 0.12);
+                gain2.gain.exponentialRampToValueAtTime(0.01, now + 0.32);
+                osc2.connect(gain2);
+                gain2.connect(ctx.destination);
+                osc2.start(now + 0.12);
+                osc2.stop(now + 0.32);
+
+                // Tone 3: 1046.50 Hz (C6) - bright chime finish
+        const osc3 = ctx.createOscillator();
+        const gain3 = ctx.createGain();
+        osc3.type = 'triangle';
+        osc3.frequency.setValueAtTime(1046.50, now + 0.25);
+        gain3.gain.setValueAtTime(0.5, now + 0.25);
+        gain3.gain.exponentialRampToValueAtTime(0.01, now + 0.65);
+        osc3.connect(gain3);
+        gain3.connect(ctx.destination);
+        osc3.start(now + 0.25);
+        osc3.stop(now + 0.65);
+
+        if (callback) {
+            setTimeout(callback, 550);
+        }
+    } catch (err) {
+        console.warn("Chime error:", err);
+        if (callback) callback();
+    }
+}
+
+        // Primary Malayalam Audio Engine with V'CODE Branding (100% Authentic Malayalam Voice)
+        function speakMalayalamVoice(amount) {
+            const amountWord = getSpokenMalayalamWords(amount);
+            
+            // "വി കോഡ് വഴി" ensures crystal-clear natural Malayalam pronunciation
+            const ttsMalayalamText = `വി കോഡ് വഴി ${amountWord} രൂപ വിജയകരമായി ലഭിച്ചു. നന്ദി, ശുഭയാത്ര!`;
+            const displayMalayalamText = `V'CODE വഴി ₹${amount} (${amountWord} രൂപ) വിജയകരമായി ലഭിച്ചു. നന്ദി, ശുഭയാത്ര!`;
+            
+            // Show roadside subtitle toast in Malayalam
+            showSubtitleToast(`"${displayMalayalamText}"`);
+            setSpeakingWaves(true);
+
+            // Step 1: Play authentic, high-clarity Malayalam voice directly via Google Neural Audio Stream
+            playDirectMalayalamStream(ttsMalayalamText, () => {
+                // Step 2: Fallback to local device speech synthesizer strictly in Malayalam (No English fallback)
+                playNativeMalayalamSpeech(ttsMalayalamText);
+            });
+        }
+
+        // Direct Pure Malayalam Cloud Audio Stream (Authentic Kerala Voice)
+        function playDirectMalayalamStream(malayalamText, onFallback) {
+            try {
+                if (currentAudioPlayer) {
+                    try {
+                        currentAudioPlayer.pause();
+                        currentAudioPlayer.currentTime = 0;
+                    } catch(e) {}
+                    currentAudioPlayer = null;
+                }
+
+                // Official Google Malayalam TTS endpoint with no-referrer bypass
+                const gttsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&tl=ml&client=tw-ob&q=${encodeURIComponent(malayalamText)}`;
+                const audio = new Audio(gttsUrl);
+                currentAudioPlayer = audio;
+                
+                // Natural speaking cadence
+                audio.playbackRate = 0.95;
+
+                let hasStarted = false;
+
+                audio.onplay = () => {
+                    hasStarted = true;
+                    setSpeakingWaves(true);
+                };
+
+                audio.onended = () => {
+                    setSpeakingWaves(false);
+                    currentAudioPlayer = null;
+                };
+
+                audio.onerror = () => {
+                    setSpeakingWaves(false);
+                    currentAudioPlayer = null;
+                    if (onFallback) onFallback();
+                };
+
+                const playPromise = audio.play();
+                if (playPromise !== undefined) {
+                    playPromise.catch(() => {
+                        if (!hasStarted && onFallback) {
+                            onFallback();
+                        }
+                    });
+                }
+            } catch (e) {
+                console.warn("Direct Malayalam stream exception:", e);
+                if (onFallback) onFallback();
+            }
+        }
+
+        // Local Device Speech Synthesizer fallback strictly in Malayalam (Never English)
+        function playNativeMalayalamSpeech(malayalamText) {
+            if (!('speechSynthesis' in window)) {
+                setSpeakingWaves(false);
+                return;
+            }
+
+            try {
+                window.speechSynthesis.cancel();
+                loadVoices();
+                const voices = availableVoices.length > 0 ? availableVoices : window.speechSynthesis.getVoices();
+
+                const utterance = new SpeechSynthesisUtterance(malayalamText);
+                utterance.lang = 'ml-IN';
+
+                // Look for native Malayalam voice installed on the device
+                const mlVoice = voices.find(v => {
+                    const name = (v.name || '').toLowerCase();
+                    const lang = (v.lang || '').toLowerCase();
+                    return lang.includes('ml') || name.includes('malayalam');
+                });
+
+                if (mlVoice) {
+                    utterance.voice = mlVoice;
+                }
+
+                // Respectful and natural tone
+                utterance.pitch = 0.90;
+                utterance.rate = 0.88;
+                utterance.onend = () => setSpeakingWaves(false);
+                utterance.onerror = () => setSpeakingWaves(false);
+
+                setSpeakingWaves(true);
+                window.speechSynthesis.speak(utterance);
+            } catch (e) {
+                console.warn("Native Malayalam fallback error:", e);
+                setSpeakingWaves(false);
+            }
+        }
+
+        // Visual sound waves toggle
+        function setSpeakingWaves(isSpeaking) {
+            const waves = document.getElementById('speaking-wave-bars');
+            const icon = document.getElementById('audio-indicator-icon');
+            if (waves && icon) {
+                if (isSpeaking) {
+                    waves.classList.remove('hidden');
+                    icon.classList.add('scale-110');
+                } else {
+                    waves.classList.add('hidden');
+                    icon.classList.remove('scale-110');
+                }
+            }
+        }
+
+        // Main trigger: Soundbox Chime + Malayalam Voice
+        function triggerVoiceRespectAudio(amount) {
+            getAudioContext();
+            playChime(() => {
+                speakMalayalamVoice(amount);
+            });
+        }
+
+        // Tap on screen to replay
+        function handleScreenTap(event) {
+            if (event.target.closest('button') || event.target.closest('input')) return;
+
+            const tapZone = document.getElementById('main-tap-zone');
+            if (tapZone) {
+                tapZone.classList.add('neon-box-active');
+                setTimeout(() => tapZone.classList.remove('neon-box-active'), 300);
+            }
+
+            triggerVoiceRespectAudio(lastPaymentAmount);
+        }
+
+        // Direct test button from top bar
+        function testDirectAudio(event) {
+            if (event) event.stopPropagation();
+            triggerVoiceRespectAudio(lastPaymentAmount);
+        }
+
+        // Visual subtitle toast
+        function showSubtitleToast(text) {
+            const toast = document.getElementById('audio-subtitle-toast');
+            if (toast) {
+                toast.querySelector('p').textContent = text;
+                toast.classList.remove('hidden');
+                setTimeout(() => {
+                    toast.classList.add('hidden');
+                }, 5500);
+            }
+        }
+
+        // Green Screen Flash Effect on Payment
+        function triggerScreenFlash() {
+            const body = document.body;
+            body.classList.add('animate-flash-green');
+            const ring = document.getElementById('ripple-ring');
+            if (ring) {
+                ring.classList.remove('ripple-effect');
+                void ring.offsetWidth;
+                ring.classList.add('ripple-effect');
+            }
+            setTimeout(() => {
+                body.classList.remove('animate-flash-green');
+            }, 700);
+        }
+
+        // Simulate incoming payment from customer
+        function simulateCustomerPayment(amount) {
+            lastPaymentAmount = amount;
+            todayTotal += amount;
+            todayTrips += 1;
+
+            document.getElementById('display-last-amount').textContent = amount;
+            document.getElementById('display-daily-total').textContent = todayTotal;
+            document.getElementById('display-daily-trips').textContent = todayTrips;
+
+            const now = new Date();
+            const timeStr = now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+            document.getElementById('last-payment-time').textContent = timeStr;
+
+            const customerHandles = ['gpay', 'paytm', 'phonepe', 'fbl'];
+            const names = ['anand', 'rahul', 'priya', 'vipin', 'deepak'];
+            const randomHandle = customerHandles[Math.floor(Math.random() * customerHandles.length)];
+            const randomName = names[Math.floor(Math.random() * names.length)];
+            document.getElementById('payer-vpa').textContent = `To: ${DRIVER_PROFILE.upiId} (From: ${randomName}***@${randomHandle})`;
+
+            toggleSimulationModal(false);
+            triggerScreenFlash();
+            triggerVoiceRespectAudio(amount);
+        }
+
+        // Custom Payment input handler
+        function handleCustomPaymentSubmit() {
+            const input = document.getElementById('input-custom-amount');
+            const val = parseInt(input.value);
+            if (val && val > 0) {
+                simulateCustomerPayment(val);
+                input.value = '';
+            }
+        }
+
+        // Speaker connection toggle simulation
+        function toggleSpeakerRoute() {
+            isSpeakerConnected = !isSpeakerConnected;
+            const icon = document.getElementById('speaker-icon');
+            const text = document.getElementById('speaker-text');
+
+            if (isSpeakerConnected) {
+                icon.className = 'fa-brands fa-bluetooth text-sm text-blue-400';
+                text.textContent = 'ഓട്ടോ സ്പീക്കർ';
+                showSubtitleToast("ബ്ലൂടൂത്ത് സ്പീക്കർ വഴി ഓഡിയോ റൂട്ട് ചെയ്തു (സ്മാർട്ട് ഡക്കിംഗ് സജീവം)");
+            } else {
+                icon.className = 'fa-solid fa-mobile-screen text-sm text-amber-400';
+                text.textContent = 'ഫോൺ സ്പീക്കർ';
+                showSubtitleToast("ഫോൺ സ്പീക്കറിലേക്ക് ഓഡിയോ തിരിച്ചുവിട്ടു (മാക്സ് വോളിയം)");
+            }
+        }
+
+        // Modal Helpers
+        function toggleSimulationModal(show) {
+            const modal = document.getElementById('modal-simulation');
+            if (show) {
+                modal.classList.remove('hidden');
+                document.getElementById('input-custom-amount').focus();
+            } else {
+                modal.classList.add('hidden');
+            }
+        }
+
+        // Run Security initialization on page load
+        window.addEventListener('DOMContentLoaded', () => {
+            initDeviceSecurity();
+        });
+    </script>
+</body>
+</html>
